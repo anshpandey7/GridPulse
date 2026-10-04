@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GridPulse | Schneider Electric Yuva Yodha Prototype</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            green: '#009E4D',
+                            greenHover: '#007a3c',
+                            navy: '#0b162c',
+                            navyLight: '#162444',
+                            navyCard: '#1a264a'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #0b162c 0%, #060c18 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(26, 38, 74, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 158, 77, 0.15);
+            border-color: rgba(0, 158, 77, 0.3);
+        }
+
+        .mobile-mockup {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 0 8px #0b162c, inset 0 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Toggle Switch CSS */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #009E4D;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #009E4D;
+        }
+        .toggle-checkbox {
+            right: 0;
+            z-index: 1;
+            border-color: #e2e8f0;
+            transition: all 0.3s;
+        }
+        .toggle-label {
+            width: 3rem;
+            height: 1.5rem;
+            background-color: #cbd5e1;
+            border-radius: 9999px;
+            transition: all 0.3s;
+        }
+        
+        .battery-level {
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Success Modal Animation */
+        #success-modal {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        #success-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            transform: scale(0.9);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #success-modal.show .modal-content {
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body class="antialiased overflow-x-hidden">
+
+    <!-- Header -->
+    <header class="glass-card sticky top-0 z-40 border-b border-white/10">
+        <div class="container mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-brand-green flex items-center justify-center shadow-lg shadow-brand-green/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white">GridPulse</h1>
+                    <p class="text-xs text-brand-green font-medium uppercase tracking-wider">Schneider Electric Yuva Yodha Prototype</p>
+                </div>
+            </div>
+            
+            <div class="bg-brand-navy rounded-full p-1 flex relative items-center border border-white/5">
+                <button id="btn-operator-view" class="relative z-10 px-5 py-2 text-sm font-medium rounded-full transition-all duration-300 text-white" onclick="switchView('operator')">DISCOM Operator</button>
+                <button id="btn-mobile-view" class="relative z-10 px-5 py-2 text-sm font-medium rounded-full transition-all duration-300 text-gray-400 hover:text-white" onclick="switchView('mobile')">Community App</button>
+                <div id="view-slider" class="absolute left-1 top-1 bottom-1 w-[145px] bg-brand-green rounded-full shadow-md transition-all duration-300 ease-in-out"></div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8">
+        
+        <!-- DISCOM OPERATOR VIEW -->
+        <div id="operator-view" class="space-y-6 transition-opacity duration-500">
+            
+            <!-- Simulation Panel -->
+            <div class="glass-card rounded-2xl p-6 border-l-4 border-l-yellow-500 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+                        </svg>
+                        Judge Interactive Simulation
+                    </h2>
+                    <p class="text-sm text-gray-400 mt-1">Test the GridPulse AI response to a sudden drop in solar generation during peak hours.</p>
+                </div>
+                <button onclick="triggerEvent()" id="trigger-btn" class="bg-brand-green hover:bg-brand-greenHover text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-brand-green/30 transition-all active:scale-95 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                    </svg>
+                    Trigger 6:00 PM Solar Intermittency Event
+                </button>
+            </div>
+
+            <!-- Telemetry & Impact Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Load -->
+                <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition-all"></div>
+                    <div class="text-sm font-medium text-gray-400 mb-1">Real-time Feeder Load</div>
+                    <div class="flex items-end gap-2">
+                        <div class="text-3xl font-bold text-white" id="val-load">82.4</div>
+                        <div class="text-sm text-gray-400 mb-1">kW</div>
+                    </div>
+                    <div class="mt-3 text-xs flex items-center gap-1 text-red-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
+                        </svg>
+                        Trending towards peak
+                    </div>
+                </div>
+
+                <!-- Solar -->
+                <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all"></div>
+                    <div class="text-sm font-medium text-gray-400 mb-1">Solar PV Generation</div>
+                    <div class="flex items-end gap-2">
+                        <div class="text-3xl font-bold text-white transition-all duration-1000" id="val-solar">45.0</div>
+                        <div class="text-sm text-gray-400 mb-1">kW</div>
+                    </div>
+                    <div class="mt-3 text-xs flex items-center gap-1 text-brand-green" id="solar-status">
+                        <span class="relative flex h-2 w-2 mr-1">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-green opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-green"></span>
+                        </span>
+                        Optimal Generation
+                    </div>
+                </div>
+
+                <!-- Transformer -->
+                <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
+                    <div class="text-sm font-medium text-gray-400 mb-1 flex justify-between">
+                        Transformer Cap.
+                        <span class="text-xs bg-white/10 px-2 py-0.5 rounded text-white">Limit: 100kW</span>
+                    </div>
+                    <div class="flex items-end gap-2 mt-1">
+                        <div class="text-3xl font-bold text-white" id="val-transformer">82.4%</div>
+                    </div>
+                    <!-- Progress bar -->
+                    <div class="w-full bg-white/10 rounded-full h-1.5 mt-4 overflow-hidden">
+                        <div id="transformer-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-1000" style="width: 82.4%"></div>
+                    </div>
+                </div>
+
+                <!-- Voltage -->
+                <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-brand-green/10 rounded-full blur-xl group-hover:bg-brand-green/20 transition-all"></div>
+                    <div class="text-sm font-medium text-gray-400 mb-1">Grid Voltage</div>
+                    <div class="flex items-end gap-2">
+                        <div class="text-3xl font-bold text-white">230.1</div>
+                        <div class="text-sm text-gray-400 mb-1">V</div>
+                    </div>
+                    <div class="mt-3 text-xs flex items-center gap-1 text-gray-400">
+                        Stable, within limits (±5%)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts & Battery -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Analytics Chart -->
+                <div class="glass-card rounded-2xl p-5 lg:col-span-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-white">Analytics: Solar Output vs Demand</h3>
+                        <div class="flex gap-3 text-xs">
+                            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-blue-500"></div> Demand</div>
+                            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-yellow-400"></div> Solar PV</div>
+                            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-brand-green"></div> Battery Disp.</div>
+                        </div>
+                    </div>
+                    <div class="relative h-[300px] w-full">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Battery Monitor -->
+                <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-lg font-semibold text-white">Battery Storage</h3>
+                            <span id="battery-badge" class="px-2 py-1 rounded text-xs font-semibold bg-gray-500/20 text-gray-300 flex items-center gap-1">
+                                Idle
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">50 kWh Community 2nd-Life EV Battery</p>
+                    </div>
+
+                    <div class="flex-1 flex flex-col items-center justify-center py-6">
+                        <!-- Battery Graphic -->
+                        <div class="relative w-32 h-48 border-4 border-white/20 rounded-xl p-1 flex flex-col justify-end">
+                            <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-2 bg-white/20 rounded-t-md"></div>
+                            
+                            <div class="absolute inset-0 flex items-center justify-center z-10">
+                                <span class="text-2xl font-bold text-white drop-shadow-md" id="battery-text">85%</span>
+                            </div>
+
+                            <div id="battery-fill" class="battery-level w-full bg-brand-green rounded-lg opacity-90 transition-all duration-1000 ease-in-out" style="height: 85%;"></div>
+                            
+                            <!-- Charging animation overlay -->
+                            <div id="charging-animation" class="absolute inset-0 overflow-hidden rounded-lg hidden">
+                                <div class="w-full h-full bg-gradient-to-t from-transparent via-white/30 to-transparent animate-float"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <div class="text-xs text-gray-400">Power I/O</div>
+                            <div class="text-lg font-semibold text-white" id="battery-power">0.0 kW</div>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <div class="text-xs text-gray-400">Health (SOH)</div>
+                            <div class="text-lg font-semibold text-white">92%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Impact Counter Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-card rounded-2xl p-5 border-l-4 border-l-brand-green">
+                    <div class="text-sm font-medium text-gray-400">Outage Hours Cut</div>
+                    <div class="text-4xl font-bold text-brand-green mt-2">81<span class="text-xl">%</span></div>
+                    <div class="text-xs text-gray-500 mt-2">Historically 4.2 hrs/week, now 0.8 hrs</div>
+                </div>
+                <div class="glass-card rounded-2xl p-5 border-l-4 border-l-blue-500">
+                    <div class="text-sm font-medium text-gray-400">Peak Load Shifted</div>
+                    <div class="text-4xl font-bold text-blue-500 mt-2">33<span class="text-xl">%</span></div>
+                    <div class="text-xs text-gray-500 mt-2">Successfully flattened the evening curve</div>
+                </div>
+                <div class="glass-card rounded-2xl p-5 border-l-4 border-l-purple-500">
+                    <div class="text-sm font-medium text-gray-400">Tech. Losses Reduced</div>
+                    <div class="text-4xl font-bold text-purple-500 mt-2">34<span class="text-xl">%</span></div>
+                    <div class="text-xs text-gray-500 mt-2">Optimized local generation matching</div>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- COMMUNITY MOBILE VIEW (Hidden by default) -->
+        <div id="mobile-view" class="hidden opacity-0 transition-opacity duration-500 flex justify-center py-6">
+            
+            <div class="w-[375px] h-[750px] bg-white rounded-[3rem] p-3 mobile-mockup relative flex flex-col">
+                <!-- Mobile Notch -->
+                <div class="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-7 bg-brand-navy rounded-b-3xl z-20"></div>
+                
+                <!-- Screen Content -->
+                <div class="bg-gray-50 flex-1 rounded-[2.5rem] overflow-hidden flex flex-col text-gray-800 relative">
+                    
+                    <!-- Header -->
+                    <div class="bg-brand-navy pt-12 pb-6 px-6 text-white rounded-b-3xl shadow-lg relative">
+                        <!-- Decorative bg -->
+                        <div class="absolute right-0 top-0 opacity-10">
+                            <svg width="150" height="150" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-semibold z-10 relative">Hello, Sir</h2>
+                        <p class="text-gray-300 text-sm z-10 relative">Community Microgrid Member</p>
+                        
+                        <div class="mt-6 flex justify-between items-center bg-white/10 rounded-xl p-4 backdrop-blur-sm z-10 relative border border-white/10">
+                            <div>
+                                <div class="text-xs text-gray-300 uppercase tracking-wide">Grid Status</div>
+                                <div class="font-semibold text-lg flex items-center gap-2 mt-1" id="mobile-grid-status">
+                                    <div class="w-3 h-3 rounded-full bg-brand-green animate-pulse" id="status-indicator"></div>
+                                    <span id="status-text">Normal</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs text-gray-300 uppercase tracking-wide">P2P Savings</div>
+                                <div class="font-bold text-2xl text-brand-green mt-1">₹420</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                        
+                        <!-- Alert Banner (Hidden by default) -->
+                        <div id="mobile-alert" class="hidden bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-yellow-700 font-medium">Grid Peak Event Active!</p>
+                                    <p class="text-xs text-yellow-600 mt-1">Smart loads paused to stabilize feeder.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Smart Load Controls -->
+                        <div>
+                            <h3 class="font-semibold text-gray-800 mb-4">Smart Load Pause</h3>
+                            <div class="space-y-4">
+                                
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center transition-all" id="card-pump">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">Agri Water Pump</div>
+                                            <div class="text-xs text-gray-500" id="status-pump">Currently Active • 3.2 kW</div>
+                                        </div>
+                                    </div>
+                                    <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                        <input type="checkbox" name="toggle" id="toggle-pump" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                                        <label for="toggle-pump" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center transition-all" id="card-ev">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-brand-green">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M11 3a1 1 0 100 2h2.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 3H11z" />
+                                                <path fill-rule="evenodd" d="M2 7a2 2 0 012-2h4a1 1 0 011 1v1a1 1 0 01-1 1H4v5.5a2.5 2.5 0 005 0V8a2 2 0 012-2h3a2 2 0 012 2v2a2 2 0 01-2 2h-3v5.5a4.5 4.5 0 01-9 0V7z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">EV Charger</div>
+                                            <div class="text-xs text-gray-500" id="status-ev">Charging • 7.4 kW</div>
+                                        </div>
+                                    </div>
+                                    <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                        <input type="checkbox" name="toggle" id="toggle-ev" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                                        <label for="toggle-ev" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- Savings Ledger -->
+                        <div>
+                            <h3 class="font-semibold text-gray-800 mb-4 flex justify-between items-end">
+                                Recent Ledger
+                                <span class="text-xs text-brand-green font-medium cursor-pointer">View All</span>
+                            </h3>
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div class="p-4 border-b border-gray-50 flex justify-between items-center">
+                                    <div class="flex gap-3 items-center">
+                                        <div class="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-brand-green">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                              <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium">Flexibility Provided</div>
+                                            <div class="text-xs text-gray-500">Today, 18:00</div>
+                                        </div>
+                                    </div>
+                                    <div class="font-semibold text-brand-green">+₹15.50</div>
+                                </div>
+                                <div class="p-4 flex justify-between items-center">
+                                    <div class="flex gap-3 items-center">
+                                        <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                              <path d="M11 3a1 1 0 100 2h2.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 3H11z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium">P2P Energy Sale</div>
+                                            <div class="text-xs text-gray-500">Yesterday, 14:30</div>
+                                        </div>
+                                    </div>
+                                    <div class="font-semibold text-brand-green">+₹42.00</div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <!-- Mobile Nav bar -->
+                    <div class="bg-white border-t border-gray-100 py-3 px-6 flex justify-between items-center shadow-[0_-5px_15px_rgba(0,0,0,0.02)] relative z-10">
+                        <div class="flex flex-col items-center text-brand-green cursor-pointer nav-tab transition-colors hover:text-brand-green" onclick="activateTab(this)">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                            <span class="text-[10px] font-medium mt-1">Home</span>
+                        </div>
+                        <div class="flex flex-col items-center text-gray-400 cursor-pointer nav-tab transition-colors hover:text-brand-green" onclick="activateTab(this)">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <span class="text-[10px] font-medium mt-1">Usage</span>
+                        </div>
+                        <div class="flex flex-col items-center text-gray-400 cursor-pointer nav-tab transition-colors hover:text-brand-green" onclick="activateTab(this)">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-[10px] font-medium mt-1">Trade</span>
+                        </div>
+                        <div class="flex flex-col items-center text-gray-400 cursor-pointer nav-tab transition-colors hover:text-brand-green" onclick="activateTab(this)">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <span class="text-[10px] font-medium mt-1">Profile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div class="modal-content bg-brand-navyCard border border-white/10 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center relative overflow-hidden">
+            
+            <div class="absolute inset-0 bg-gradient-to-br from-brand-green/20 to-transparent pointer-events-none"></div>
+
+            <div class="w-20 h-20 mx-auto bg-brand-green rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(0,158,77,0.5)] mb-6 relative z-10">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+
+            <h2 class="text-2xl font-bold text-white mb-2 relative z-10">Feeder Stabilized</h2>
+            <h3 class="text-brand-green font-semibold text-lg mb-4 relative z-10">Zero Outages Recorded</h3>
+            
+            <p class="text-gray-400 text-sm mb-6 relative z-10">
+                GridPulse AI successfully deployed 25kW from the Community Battery and paused non-essential loads to compensate for the 60% sudden solar drop.
+            </p>
+
+            <button onclick="closeModal()" class="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-medium transition-colors border border-white/10 relative z-10">
+                Acknowledge & Continue
+            </button>
+        </div>
+    </div>
+
+
+    <!-- JS Logic -->
+    <script>
+        // --- View Switching ---
+        function switchView(view) {
+            const opView = document.getElementById('operator-view');
+            const mobView = document.getElementById('mobile-view');
+            const btnOp = document.getElementById('btn-operator-view');
+            const btnMob = document.getElementById('btn-mobile-view');
+            const slider = document.getElementById('view-slider');
+
+            if (view === 'operator') {
+                opView.classList.remove('hidden');
+                setTimeout(() => opView.classList.remove('opacity-0'), 50);
+                
+                mobView.classList.add('opacity-0');
+                setTimeout(() => mobView.classList.add('hidden'), 500);
+
+                btnOp.classList.replace('text-gray-400', 'text-white');
+                btnMob.classList.replace('text-white', 'text-gray-400');
+                slider.style.transform = 'translateX(0)';
+                slider.style.width = '145px';
+            } else {
+                mobView.classList.remove('hidden');
+                setTimeout(() => mobView.classList.remove('opacity-0'), 50);
+                
+                opView.classList.add('opacity-0');
+                setTimeout(() => opView.classList.add('hidden'), 500);
+
+                btnMob.classList.replace('text-gray-400', 'text-white');
+                btnOp.classList.replace('text-white', 'text-gray-400');
+                slider.style.transform = 'translateX(145px)';
+                slider.style.width = '130px';
+            }
+        }
+
+        // --- Chart.js Initialization ---
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        
+        // Data generation for 24h
+        const labels = Array.from({length: 24}, (_, i) => `${i}:00`);
+        const demandBase = [30, 25, 22, 20, 25, 35, 50, 65, 70, 75, 75, 70, 65, 60, 65, 70, 75, 80, 85, 90, 85, 75, 60, 40];
+        const solarBase = [0, 0, 0, 0, 0, 0, 10, 25, 40, 55, 65, 70, 72, 68, 60, 45, 25, 10, 0, 0, 0, 0, 0, 0];
+        const batteryDispBase = Array(24).fill(0);
+
+        const myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Household Demand (kW)',
+                        data: [...demandBase],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Solar PV Output (kW)',
+                        data: [...solarBase],
+                        borderColor: '#facc15',
+                        backgroundColor: 'rgba(250, 204, 21, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Battery Dispatch (kW)',
+                        data: [...batteryDispBase],
+                        borderColor: '#009E4D',
+                        backgroundColor: 'rgba(0, 158, 77, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(11, 22, 44, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#cbd5e1',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        padding: 10
+                    },
+                    annotation: {
+                        annotations: {
+                            box1: {
+                                type: 'box',
+                                xMin: 18,
+                                xMax: 22,
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                borderColor: 'rgba(239, 68, 68, 0.3)',
+                                borderWidth: 1,
+                                drawTime: 'beforeDatasetsDraw',
+                                label: {
+                                    display: true,
+                                    content: 'Peak Intermittency Window',
+                                    position: 'top',
+                                    color: 'rgba(255,255,255,0.5)',
+                                    font: { size: 10 }
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8' },
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+
+        // Register custom annotation plugin inline for highlighting window without external dependency
+        const highlightPlugin = {
+            id: 'highlightWindow',
+            beforeDraw: (chart) => {
+                const ctx = chart.ctx;
+                const xAxis = chart.scales.x;
+                const yAxis = chart.scales.y;
+                
+                const startX = xAxis.getPixelForValue(18); // 18:00
+                const endX = xAxis.getPixelForValue(22);   // 22:00
+
+                ctx.save();
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.05)';
+                ctx.fillRect(startX, yAxis.top, endX - startX, yAxis.bottom - yAxis.top);
+                
+                ctx.font = '10px Inter';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.textAlign = 'center';
+                ctx.fillText('Peak Intermittency Window', startX + (endX - startX)/2, yAxis.top + 15);
+                ctx.restore();
+            }
+        };
+        Chart.register(highlightPlugin);
+
+
+        // --- Simulation Logic ---
+        let eventTriggered = false;
+
+        function triggerEvent() {
+            if(eventTriggered) return;
+            eventTriggered = true;
+
+            const triggerBtn = document.getElementById('trigger-btn');
+            triggerBtn.innerHTML = 'Event Active...';
+            triggerBtn.classList.remove('bg-brand-green', 'hover:bg-brand-greenHover');
+            triggerBtn.classList.add('bg-gray-600', 'cursor-not-allowed');
+
+            // 1. Simulate Solar Drop in telemetry
+            const valSolar = document.getElementById('val-solar');
+            const solarStatus = document.getElementById('solar-status');
+            valSolar.innerText = '18.0'; // 60% drop from 45.0
+            valSolar.classList.add('text-red-500');
+            solarStatus.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg> Sudden Cloud Cover
+            `;
+            solarStatus.classList.replace('text-brand-green', 'text-red-500');
+
+            // 2. Transformer Load spikes then stabilizes
+            const valTrans = document.getElementById('val-transformer');
+            const transBar = document.getElementById('transformer-bar');
+            valTrans.innerText = '98.5%';
+            valTrans.classList.add('text-yellow-500');
+            transBar.style.width = '98.5%';
+            transBar.classList.replace('bg-blue-500', 'bg-yellow-500');
+            
+            setTimeout(() => {
+                valTrans.innerText = '82.4%';
+                valTrans.classList.remove('text-yellow-500');
+                transBar.style.width = '82.4%';
+                transBar.classList.replace('bg-yellow-500', 'bg-brand-green');
+            }, 2500);
+
+            // 3. Battery discharging
+            const batBadge = document.getElementById('battery-badge');
+            const batPower = document.getElementById('battery-power');
+            const batFill = document.getElementById('battery-fill');
+            
+            batBadge.innerHTML = '<div class="w-2 h-2 rounded-full bg-brand-green animate-pulse"></div> Discharging';
+            batBadge.classList.replace('bg-gray-500/20', 'bg-brand-green/20');
+            batBadge.classList.replace('text-gray-300', 'text-brand-green');
+            
+            batPower.innerText = '-25.0 kW';
+            batPower.classList.add('text-brand-green');
+            batFill.style.height = '75%'; // Drop SOC
+
+            // 4. Update Chart Data to reflect 18:00 event
+            myChart.data.datasets[1].data[18] = 5; // Solar drops
+            myChart.data.datasets[1].data[19] = 2; 
+            myChart.data.datasets[2].data[18] = 25; // Battery dispatches
+            myChart.data.datasets[2].data[19] = 20;
+            myChart.data.datasets[2].data[20] = 15;
+            
+            // Show load shifting (Demand curve drops slightly because of smart pause)
+            myChart.data.datasets[0].data[18] = 75; // Down from 85
+            myChart.data.datasets[0].data[19] = 78; // Down from 90
+            myChart.update();
+
+            // 5. Update Mobile View logic
+            const statusInd = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            const mobileAlert = document.getElementById('mobile-alert');
+            const togPump = document.getElementById('toggle-pump');
+            const togEv = document.getElementById('toggle-ev');
+            
+            statusInd.classList.replace('bg-brand-green', 'bg-yellow-500');
+            statusText.innerText = 'Peak Event Active';
+            statusText.classList.add('text-yellow-500');
+            
+            mobileAlert.classList.remove('hidden');
+
+            // Auto-pause loads
+            setTimeout(() => {
+                togPump.checked = false;
+                document.getElementById('status-pump').innerText = 'Paused by AI • 0.0 kW';
+                document.getElementById('card-pump').classList.add('bg-gray-50', 'opacity-60');
+                
+                togEv.checked = false;
+                document.getElementById('status-ev').innerText = 'Paused by AI • 0.0 kW';
+                document.getElementById('card-ev').classList.add('bg-gray-50', 'opacity-60');
+            }, 1000);
+
+
+            // 6. Show Success Modal
+            setTimeout(() => {
+                const modal = document.getElementById('success-modal');
+                modal.classList.add('show');
+            }, 2500);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('success-modal');
+            modal.classList.remove('show');
+            
+            const triggerBtn = document.getElementById('trigger-btn');
+            triggerBtn.innerHTML = 'Event Handled Successfully';
+            triggerBtn.classList.remove('bg-gray-600');
+            triggerBtn.classList.add('bg-brand-navyLight', 'border', 'border-white/10', 'text-brand-green');
+        }
+
+        function activateTab(el) {
+            // Remove active state from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('text-brand-green');
+                tab.classList.add('text-gray-400');
+            });
+            // Add active state to clicked tab
+            el.classList.remove('text-gray-400');
+            el.classList.add('text-brand-green');
+        }
+
+    </script>
+</body>
+</html>
